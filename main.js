@@ -40,7 +40,7 @@ class ThreeScene {
     initCamera() {
         this.camera = new THREE.PerspectiveCamera(65, window.innerWidth / window.innerHeight, 0.1, 10000);
         // this.camera.position.z = 0;
-        this.camera.position.set(0, 0, 1000)
+        this.camera.position.set(0, 0, 10)
     }
 
     initRenderer() {
