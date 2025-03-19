@@ -1,0 +1,7 @@
+<krpano version="1.21.20">
+    <scene name="default">
+        <image>
+            <sphere url="preview.jpg" />
+        </image>
+    </scene>
+</krpano>

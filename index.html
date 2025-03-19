@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Document</title>
+        <link rel="stylesheet" href="style.css">
+        <!-- <script src="krpano.js"></script> Подключение krpano -->
+        <script type="importmap">
+        {
+          "imports": {
+            "three": "https://cdn.jsdelivr.net/npm/three@0.117.0/build/three.module.js",
+            "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.117.0/examples/jsm/"
+          }
+        }
+      </script>
+    </head>
+    <body>
+        <!-- <div id="krpanoContainer" style="width:100vw; height:100vh;"></div> -->
+        <script src="suncalc.js" type="module"></script>
+        <script type="module" src="main.js"></script>
+        <!-- <script>
+            embedpano({
+                xml: "tour.xml",
+                target: "krpanoContainer",
+                html5: "only",
+                mobilescale: 1.0
+            });
+        </script> -->
+        <div id="three-container"> </div>
+    </body>
+</html>
