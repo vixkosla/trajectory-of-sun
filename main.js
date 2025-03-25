@@ -4,28 +4,54 @@ import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
 
-console.log(SunCalc)
+// console.log(SunCalc)
+
+window.addEventListener('timeChanged', (event) => {
+    // console.log("Новое значение, часы:", event.detail);
+    // console.log("Новое значение, минуты:", event.detail);
+
+    const property = event.detail.property
+
+    if (property === 'minutes') {
+        sunMovement.changeSun(window.currentTimeData)
+    }
+
+});
+
+window.addEventListener('dateChanged', (event) => {
+    const property = event.detail.property
+
+    sunMovement.changeDate()
+    // console.log(window.currentDateData.month)
+})
+
+// плавное изменение солнца
+// вытащить данные в ползунок
 
 class ThreeScene {
     static RADIUS_SPHERE = 1000;
 
     constructor() {
+        this.meshes = [];
+
         this.initScene();
         this.initCamera();
         this.initRenderer();
         // this.initLighting();
         // this.initObjects();
-        
+
         this.initGrid()
         this.initEclipse(23.5);
         this.initTime()
+
+        this.initMaterials();
 
         this.createSunPath()
         this.createSun()
         this.createMultipleSun()
         this.createSunsetAndSunrise()
         // this.initSphere();
-        
+
         this.initControls();
         this.initEvents();
 
@@ -54,6 +80,69 @@ class ThreeScene {
         this.light = new THREE.DirectionalLight(0xffffff, 1);
         this.light.position.set(1, 1, 1).normalize();
         this.scene.add(this.light);
+    }
+
+    initMaterials() {
+        this.sunMaterial = new THREE.MeshBasicMaterial({
+            color: 0xffffff
+        })
+
+        this.multipleSunMaterial = new THREE.MeshBasicMaterial({
+            color: 0xffff00,
+            transparent: true,
+            opacity: 0.6,
+            // premultipliedAlpha: false,
+            blending: THREE.CustomBlending,
+            blendSrc: THREE.SrcAlphaFactor,
+            // blendDst: THREE.SrcColorFactor 
+        });
+
+        this.sunsetAndSunriseMaterial = new THREE.MeshBasicMaterial({
+            color: 0xffff00
+        })
+
+        this.tubeShaderMaterial = new THREE.ShaderMaterial({
+            uniforms: {
+                baseOpacity: { value: 0.8 } // Базовая прозрачность (настройте: 0.5–1.0)
+            },
+            vertexShader: `
+                varying vec2 vUv;
+                void main() {
+                    vUv = uv; // UV-координаты вдоль трубы
+                    gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+                }
+            `,
+            fragmentShader: `
+                uniform float baseOpacity;
+                varying vec2 vUv;
+    
+                void main() {
+                    // Градиент: синий -> жёлтый -> красный -> жёлтый -> синий
+                    vec3 color;
+                    float t = vUv.x; // Координата вдоль трубы (0.0 - начало, 1.0 - конец)
+                    
+                    if (t < 0.25) {
+                        // Синий -> Жёлтый (0.0 -> 0.25)
+                        color = mix(vec3(0.0, 0.0, 1.0), vec3(1.0, 1.0, 0.0), t * 4.0);
+                    } else if (t < 0.5) {
+                        // Жёлтый -> Красный (0.25 -> 0.5)
+                        color = mix(vec3(1.0, 1.0, 0.0), vec3(1.0, 0.0, 0.0), (t - 0.25) * 4.0);
+                    } else if (t < 0.75) {
+                        // Красный -> Жёлтый (0.5 -> 0.75)
+                        color = mix(vec3(1.0, 0.0, 0.0), vec3(1.0, 1.0, 0.0), (t - 0.5) * 4.0);
+                    } else {
+                        // Жёлтый -> Синий (0.75 -> 1.0)
+                        color = mix(vec3(1.0, 1.0, 0.0), vec3(0.0, 0.0, 1.0), (t - 0.75) * 4.0);
+                    }
+    
+                    // Прозрачность: исчезает к концам
+                    float alpha = baseOpacity * sin(t * 3.14159); // Плавное затухание (0 -> 1 -> 0)
+    
+                    gl_FragColor = vec4(color, alpha);
+                }
+            `,
+            transparent: true
+        });
     }
 
     initObjects() {
@@ -118,31 +207,74 @@ class ThreeScene {
     }
 
     initTime() {
-        this.date = new Date(Date.UTC(2025, 2, 14, 11, 26)); // 14 марта 2025, 22:56 CET = 21:56 UTC
-        this.late = 55.7558;
-        this.lon = 37.6137
+        this.date = window.initTime;
+        this.late = window.late
+        this.lon = window.lon
 
         this.times = SunCalc.getTimes(this.date, this.late, this.lon)
     }
 
-    // initSun
-    // initCurve
-    // initРассветИЗакат
-    // initМножествоСолнц
+    changeTime() {
+        this.date = window.currentDateData.currentDate()
+        this.times = SunCalc.getTimes(this.date, this.late, this.lon)
+        // window.times = times
+    }
+
+    changeDate() {
+        // const date = this.date
+        // date.setMonth(month, 1)
+        this.changeTime()
+
+        this.destroyScene()
+
+        // this.createSunPath()
+        this.createSun()
+        this.createMultipleSun()
+        this.createSunsetAndSunrise()
+        this.createSunPath()
+    }
+
+    destroyScene() {
+        this.scene.remove(this.sun)
+        this.sun.geometry.dispose()
+        this.sun = null
+        // console.log(this.meshes)
+
+        this.meshes.forEach(mesh => {
+            this.scene.remove(mesh)
+            mesh.geometry.dispose()
+            mesh = null
+        })
+
+        this.meshes = []
+
+        this.scene.remove(this.sunPath)
+        this.sunPath.geometry.dispose()
+        this.sunPath = null
+    }
 
     createSun() {
         const currentTime = this.date;
 
-        const sphere = new THREE.Mesh(
+        const sun = new THREE.Mesh(
             new THREE.SphereGeometry(60, 30, 30),
-            new THREE.MeshBasicMaterial({
-                color: 0xffffff
-            })
+            this.sunMaterial
         )
 
         const position = this.getCoordinates(currentTime)
-        sphere.position.copy(position)
-        this.scene.add(sphere)
+        sun.position.copy(position)
+        this.scene.add(sun)
+        this.sun = sun;
+    }
+
+    changeSun(time) {
+        const date = new Date(this.date)
+        const currentTime = date.setHours(time.hours, time.minutes, 0, 0)
+        // console.log(new Date(currentTime))
+
+        const position = this.getCoordinates(currentTime)
+        // console.log(new Date(currentTime).getHours())
+        this.sun.position.copy(position)
     }
 
 
@@ -154,7 +286,7 @@ class ThreeScene {
         const sunrise = times.sunrise;
         const sunset = times.sunset;
 
-        const interval = sunset.getHours() - sunrise.getHours() ;
+        const interval = sunset.getHours() - sunrise.getHours();
         const hours = Array.from({ length: interval }, (_, i) => sunrise.getHours() + i + 1)
 
         const sunPoints = hours.map(hour => {
@@ -166,30 +298,20 @@ class ThreeScene {
             }
         })
 
-        const material = new THREE.MeshBasicMaterial({ 
-            color: 0xffff00, 
-            transparent: true, 
-            opacity: 0.6,
-            // premultipliedAlpha: false,
-            blending: THREE.CustomBlending,
-            blendSrc: THREE.SrcAlphaFactor,
-            // blendDst: THREE.SrcColorFactor 
-        });
-
         const addCircle = (position, size, tValue, timeLabel) => {
 
             // sprite.material.uniforms.tValue = { value: tValue }; // Передаём позицию на трубе
 
             const sphere = new THREE.Mesh(
                 new THREE.SphereGeometry(10.0, 30, 30),
-
-                material
+                this.multipleSunMaterial
             )
 
             const a = position.y / ThreeScene.RADIUS_SPHERE * 3.0 + 1.0;
 
             sphere.position.copy(position)
             sphere.scale.set(a, a, a);
+            this.meshes.push(sphere)
             this.scene.add(sphere)
 
         }
@@ -199,7 +321,7 @@ class ThreeScene {
             var hours = point.time.getUTCHours();
             var minutes = point.time.getUTCMinutes();
 
-            console.log(point.time)
+            // console.log(point.time)
 
             addCircle(point.position, 20, t, `${hours.toString().padStart(2, "0")}:00`);
         });
@@ -224,20 +346,20 @@ class ThreeScene {
                 // new THREE.SphereGeometry(50, 30, 30, 0, Math.PI * 2, 0, Math.PI / 2),
                 new THREE.SphereGeometry(30, 30, 30),
                 // tubeMaterial,
-                new THREE.MeshBasicMaterial({
-                    color: 0xffff00
-                })
+                this.sunsetAndSunriseMaterial
             )
 
             halfSphere.position.copy(position)
+            this.meshes.push(halfSphere)
             this.scene.add(halfSphere)
         }
 
         mainPoints.forEach((point) => {
 
-            console.log(point.time)
+            // console.log(point.time)
+            // console.log(point.position)
 
-            
+
             addCircle(point.position);
         })
     }
@@ -247,7 +369,7 @@ class ThreeScene {
         var lon = this.lon
 
         var times = this.times
-        console.log('Suncalc.getTimes', times);
+        // console.log('Suncalc.getTimes', times);
 
         var sunrise = times.sunrise;
         var sunset = times.sunset;
@@ -255,10 +377,10 @@ class ThreeScene {
         // console.log("sunrise:", times.sunrise, "sunset", times.sunset)
 
         var timeStep = 15 * 60 * 1000; // 15 минут в миллисекундах
-        console.log('sunrise', sunrise)
+        // console.log('sunrise', sunrise)
         var currentStep = new Date(sunrise);
-        console.log('currentStep:', currentStep);
-        console.log('currentStep:', new Date(sunrise));
+        // console.log('currentStep:', currentStep);
+        // console.log('currentStep:', new Date(sunrise));
 
 
         var points = [];
@@ -272,48 +394,7 @@ class ThreeScene {
         var tubeGeometry = new THREE.TubeGeometry(curve, points.length * 2, 5, 30, false);
         var tubeMaterial = new THREE.MeshBasicMaterial({ color: 0xffff00, transparent: true, opacity: 1.0 });
 
-        var tubeShaderMaterial = new THREE.ShaderMaterial({
-            uniforms: {
-                baseOpacity: { value: 0.8 } // Базовая прозрачность (настройте: 0.5–1.0)
-            },
-            vertexShader: `
-                varying vec2 vUv;
-                void main() {
-                    vUv = uv; // UV-координаты вдоль трубы
-                    gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
-                }
-            `,
-            fragmentShader: `
-                uniform float baseOpacity;
-                varying vec2 vUv;
-    
-                void main() {
-                    // Градиент: синий -> жёлтый -> красный -> жёлтый -> синий
-                    vec3 color;
-                    float t = vUv.x; // Координата вдоль трубы (0.0 - начало, 1.0 - конец)
-                    
-                    if (t < 0.25) {
-                        // Синий -> Жёлтый (0.0 -> 0.25)
-                        color = mix(vec3(0.0, 0.0, 1.0), vec3(1.0, 1.0, 0.0), t * 4.0);
-                    } else if (t < 0.5) {
-                        // Жёлтый -> Красный (0.25 -> 0.5)
-                        color = mix(vec3(1.0, 1.0, 0.0), vec3(1.0, 0.0, 0.0), (t - 0.25) * 4.0);
-                    } else if (t < 0.75) {
-                        // Красный -> Жёлтый (0.5 -> 0.75)
-                        color = mix(vec3(1.0, 0.0, 0.0), vec3(1.0, 1.0, 0.0), (t - 0.5) * 4.0);
-                    } else {
-                        // Жёлтый -> Синий (0.75 -> 1.0)
-                        color = mix(vec3(1.0, 1.0, 0.0), vec3(0.0, 0.0, 1.0), (t - 0.75) * 4.0);
-                    }
-    
-                    // Прозрачность: исчезает к концам
-                    float alpha = baseOpacity * sin(t * 3.14159); // Плавное затухание (0 -> 1 -> 0)
-    
-                    gl_FragColor = vec4(color, alpha);
-                }
-            `,
-            transparent: true
-        });
+
         var spriteMaterial = new THREE.ShaderMaterial({
             uniforms: { baseOpacity: { value: 0.8 } },
             vertexShader: `
@@ -347,7 +428,8 @@ class ThreeScene {
             transparent: true
         });
 
-        var sunPath = new THREE.Mesh(tubeGeometry, tubeShaderMaterial);
+        var sunPath = new THREE.Mesh(tubeGeometry, this.tubeShaderMaterial);
+        this.sunPath = sunPath;
         this.scene.add(sunPath);
 
     }
@@ -384,7 +466,7 @@ class ThreeScene {
         );
         this.composer.addPass(bloomPass);
 
-        
+
     }
 
     animate() {
@@ -404,23 +486,40 @@ class ThreeScene {
 
     getCoordinates(currentTime) {
         var position = SunCalc.getPosition(currentTime, this.late, this.lon);
+        // console.log(position)
         var azimuth = position.azimuth; // В радианах, от севера по часовой стрелке
         var altitude = position.altitude; // В радианах, от горизонта вверх
 
         // Преобразование в координаты Three.js
         var r = ThreeScene.RADIUS_SPHERE; // Радиус сферы
-        var theta = Math.PI / 2 - altitude; // Полярный угол от оси Z
-        var phi_deg = (90 - (azimuth * 180 / Math.PI)) % 360; // Азимут в градусах для Three.js
-        var phi = phi_deg * Math.PI / 180; // В радианах
+        // var theta = Math.PI / 2 - altitude; // Полярный угол от оси Z
+        // var phi_deg = (90 - (azimuth * 180 / Math.PI)) % 360; // Азимут в градусах для Three.js
+        // var phi = phi_deg * Math.PI / 180; // В радианах
+
+
+        // // Картезианские координаты
+        // var x = r * Math.sin(theta) * Math.cos(phi);
+        // var y = r * Math.sin(theta) * Math.sin(phi);
+        // var z = r * Math.cos(theta);
+
+        // Преобразование в сферические координаты для Three.js
+        var theta = Math.PI / 2 - altitude; // Полярный угол от оси Y (вертикаль)
+        var phi = - Math.PI / 2 + azimuth; // Азимутальный угол (в плоскости XZ)
 
         // Картезианские координаты
         var x = r * Math.sin(theta) * Math.cos(phi);
-        var y = r * Math.sin(theta) * Math.sin(phi);
-        var z = r * Math.cos(theta);
+        var y = r * Math.cos(theta); // Высота зависит от theta (altitude)
+        var z = r * Math.sin(theta) * Math.sin(phi);
+
+        // var x = (-1) * r * Math.cos(theta)
+        // var y = r * Math.sin(theta) * Math.sin(phi);
+        // var z = r * Math.sin(theta) * Math.cos(phi);
+
+
 
         return new THREE.Vector3(x, y, z)
     }
 }
 
 // Запуск сцены
-new ThreeScene();
+const sunMovement = new ThreeScene();

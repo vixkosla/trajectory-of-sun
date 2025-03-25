@@ -1,12 +1,12 @@
 <!DOCTYPE html>
 <html lang="en">
-    <head>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Document</title>
-        <link rel="stylesheet" href="style.css">
-        <!-- <script src="krpano.js"></script> Подключение krpano -->
-        <script type="importmap">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+    <link rel="stylesheet" href="style.css">
+    <!-- <script src="krpano.js"></script> Подключение krpano -->
+    <script type="importmap">
         {
           "imports": {
             "three": "https://cdn.jsdelivr.net/npm/three@0.117.0/build/three.module.js",
@@ -14,12 +14,13 @@
           }
         }
       </script>
-    </head>
-    <body>
-        <!-- <div id="krpanoContainer" style="width:100vw; height:100vh;"></div> -->
-        <script src="suncalc.js" type="module"></script>
-        <script type="module" src="main.js"></script>
-        <!-- <script>
+  </head>
+  <body>
+    <!-- <div id="krpanoContainer" style="width:100vw; height:100vh;"></div> -->
+    <script src="suncalc.js" type="module"></script>
+    <script type="module" src="modal.js"></script>
+    <script type="module" src="main.js"></script>
+    <!-- <script>
             embedpano({
                 xml: "tour.xml",
                 target: "krpanoContainer",
@@ -27,6 +28,30 @@
                 mobilescale: 1.0
             });
         </script> -->
-        <div id="three-container"> </div>
-    </body>
+    <div id="three-container"> </div>
+
+    <button id="open-modal">Выбрать дату и время</button>
+
+    <!-- Всплывающее окно -->
+    <div id="modal" class="modal hidden">
+      <div class="modal-content">
+        <span id="close-modal" class="close">&times;</span>
+        <h2>Выбор даты и времени</h2>
+
+        <div class="date-picker">
+          <label for="month">Дата:</label>
+          <select id="month"></select>
+          <select id="day"></select>
+        </div>
+
+        <label for="time">Время:</label>
+        <div class="time-slider-container">
+          <span class="time-icon">🌅</span>
+          <input type="range" id="time" min="0" max="24" step="0.25">
+          <span class="time-icon">🌇</span>
+        </div>
+        <div id="time-display">00:00</div>
+      </div>
+    </div>
+  </body>
 </html>
