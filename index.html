@@ -10,7 +10,12 @@
         {
           "imports": {
             "three": "https://cdn.jsdelivr.net/npm/three@0.117.0/build/three.module.js",
-            "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.117.0/examples/jsm/"
+            "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.117.0/examples/jsm/",
+            "troika-three-text": "https://unpkg.com/troika-three-text@0.34.0/dist/troika-three-text.esm.js",
+            "troika-three-utils": "https://unpkg.com/troika-three-utils@0.34.0/dist/troika-three-utils.esm.js",
+            "troika-worker-utils": "https://unpkg.com/troika-worker-utils@0.34.0/dist/troika-worker-utils.esm.js",
+            "webgl-sdf-generator": "https://unpkg.com/webgl-sdf-generator@0.34.0/dist/webgl-sdf-generator.mjs",
+            "bidi-js":             "https://unpkg.com/bidi-js@0.34.0/dist/bidi.mjs"
           }
         }
       </script>
@@ -18,8 +23,11 @@
   <body>
     <!-- <div id="krpanoContainer" style="width:100vw; height:100vh;"></div> -->
     <script src="suncalc.js" type="module"></script>
+    <!-- <script src="https://unpkg.com/troika-3d-text@0.34.0/dist/troika-3d-text.umd.min.js"></script> -->
     <script type="module" src="modal.js"></script>
     <script type="module" src="main.js"></script>
+    <!-- <script src="troika-three-text.umd.min.js" type="module"></script> -->
+
     <!-- <script>
             embedpano({
                 xml: "tour.xml",

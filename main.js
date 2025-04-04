@@ -3,8 +3,14 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+import { CSS2DRenderer, CSS2DObject } from 'three/addons/renderers/CSS2DRenderer.js';
 
-// console.log(SunCalc)
+import { Text } from 'troika-three-text';
+console.log(Text)
+
+
+console.log(Text)
+console.log(SunCalc)
 
 window.addEventListener('timeChanged', (event) => {
     // console.log("Новое значение, часы:", event.detail);
@@ -33,11 +39,12 @@ class ThreeScene {
 
     constructor() {
         this.meshes = [];
+        this.labels = []
 
         this.initScene();
         this.initCamera();
         this.initRenderer();
-        // this.initLighting();
+        this.initLighting();
         // this.initObjects();
 
         this.initGrid()
@@ -74,6 +81,13 @@ class ThreeScene {
         this.renderer.setClearColor(0x808080, 1);
         this.renderer.setSize(window.innerWidth, window.innerHeight);
         document.querySelector('#three-container').appendChild(this.renderer.domElement);
+
+        const labelRenderer = new CSS2DRenderer();
+        labelRenderer.setSize(window.innerWidth, window.innerHeight);
+        labelRenderer.domElement.style.pointerEvents = 'none';
+        document.querySelector('#three-container').appendChild(labelRenderer.domElement)
+        this.labelRenderer = labelRenderer;
+
     }
 
     initLighting() {
@@ -173,7 +187,7 @@ class ThreeScene {
 
         const material = new THREE.LineBasicMaterial({
             color: 0xffa500,
-            linewidth: 64,
+            linewidth: 8,
             transparent: true,
             opacity: 0.4
         });  // Оранжевый цвет сетки
@@ -217,17 +231,13 @@ class ThreeScene {
     changeTime() {
         this.date = window.currentDateData.currentDate()
         this.times = SunCalc.getTimes(this.date, this.late, this.lon)
-        // window.times = times
     }
 
     changeDate() {
-        // const date = this.date
-        // date.setMonth(month, 1)
         this.changeTime()
 
         this.destroyScene()
 
-        // this.createSunPath()
         this.createSun()
         this.createMultipleSun()
         this.createSunsetAndSunrise()
@@ -238,12 +248,16 @@ class ThreeScene {
         this.scene.remove(this.sun)
         this.sun.geometry.dispose()
         this.sun = null
-        // console.log(this.meshes)
 
         this.meshes.forEach(mesh => {
             this.scene.remove(mesh)
             mesh.geometry.dispose()
             mesh = null
+        })
+
+        this.labels.forEach(label => {
+            this.scene.remove(label)
+            label.dispose()
         })
 
         this.meshes = []
@@ -265,12 +279,14 @@ class ThreeScene {
         sun.position.copy(position)
         this.scene.add(sun)
         this.sun = sun;
+
     }
 
     changeSun(time) {
         const date = new Date(this.date)
         const currentTime = date.setHours(time.hours, time.minutes, 0, 0)
         // console.log(new Date(currentTime))
+        // const currentTime = window.currentDateData.currentDate()
 
         const position = this.getCoordinates(currentTime)
         // console.log(new Date(currentTime).getHours())
@@ -308,23 +324,90 @@ class ThreeScene {
             )
 
             const a = position.y / ThreeScene.RADIUS_SPHERE * 3.0 + 1.0;
+            sphere.scale.set(a, a, a);
 
             sphere.position.copy(position)
-            sphere.scale.set(a, a, a);
             this.meshes.push(sphere)
             this.scene.add(sphere)
+
+            const radius = sphere.geometry.parameters.radius * a;
+            console.log(radius)
+            this.addLabel(position, timeLabel, radius);
 
         }
 
         sunPoints.forEach((point, index) => {
             var t = index / (sunPoints.length - 1); // Позиция вдоль трубы (0.0 - 1.0)
-            var hours = point.time.getUTCHours();
-            var minutes = point.time.getUTCMinutes();
+            var hours = point.time.getHours();
+            var minutes = point.time.getMinutes();
 
-            // console.log(point.time)
+            const labelTime = `${hours.toString().padStart(2, "0")}`
+            console.log(point.time)
 
-            addCircle(point.position, 20, t, `${hours.toString().padStart(2, "0")}:00`);
+            addCircle(point.position, 20, t, labelTime);
         });
+        console.log(this.labels)
+    }
+
+    addLabel(position, value, sphereRadius) {
+        const label = new Text();
+
+        label.text = `${value}`;
+        label.fontSize = 35.2;
+        label.color = 0xffffff;
+
+
+        label.position.copy(position);
+
+        // label.position.set(0, 0, 0)
+        const offset = sphereRadius * 1.2;
+        label.position.x += offset;  // Справа
+        label.position.z -= offset * 1.2;  // Спереди (если Z направлен от камеры)
+        label.position.y -= offset * 0.5;
+
+        label.lookAt(0, 0, 0);
+
+        this.labels.push(label)
+        this.scene.add(label);
+
+        label.sync();
+    }
+
+    addSunsetSunriseLabel(position, value, index) {
+        const label = new Text();
+
+        label.text = `${value}`
+        label.fontSize = 120.0;
+        // label.letterSpacing = -1.0;
+        label.fontWeight = "bold"
+        label.font = 'https://github.com/opensourcepos/opensourcepos/blob/master/public/fonts/Arial.woff'
+        label.position.copy(position)
+
+        const sphereRadius = 10.0;
+        const offset = sphereRadius * 1.5;
+
+
+        let isSunset = index ? 1 : 0;
+        let isSunrise = !index ? 1 : 0;
+
+        label.anchorY = 'bottom'
+
+        if (isSunrise) {
+            label.color = "#7fc8ff"
+            label.anchorX = 'left'
+        }
+
+        if (isSunset) {
+            label.color = "#ffff7f"
+            label.anchorX = 'right'
+        }
+
+        label.lookAt(0, 0, 0);
+
+        this.labels.push(label)
+        this.scene.add(label);
+
+        label.sync();
     }
 
     createSunsetAndSunrise() {
@@ -354,13 +437,19 @@ class ThreeScene {
             this.scene.add(halfSphere)
         }
 
-        mainPoints.forEach((point) => {
+        mainPoints.forEach((point, index) => {
 
-            // console.log(point.time)
+            console.log(point.time)
             // console.log(point.position)
 
+            const hours = point.time.getHours().toString().padStart(2, "0");   // "14"
+            const minutes = point.time.getMinutes().toString().padStart(2, "0"); // "43"
+
+            // Собираем в нужный формат
+            const labelTime = `${hours}:${minutes}`; // "14:43"
 
             addCircle(point.position);
+            this.addSunsetSunriseLabel(point.position, labelTime, index);
         })
     }
 
@@ -448,6 +537,7 @@ class ThreeScene {
         this.camera.aspect = window.innerWidth / window.innerHeight;
         this.camera.updateProjectionMatrix();
         this.renderer.setSize(window.innerWidth, window.innerHeight);
+        this.labelRenderer.setSize(window.innerWidth, window.innerHeight)
     }
 
     initPostProccesing() {
@@ -481,6 +571,7 @@ class ThreeScene {
 
         this.controls.update();
         this.composer.render();
+        this.labelRenderer.render(this.scene, this.camera);
         // this.renderer.render(this.scene, this.camera);
     }
 
